@@ -5,7 +5,8 @@ from datetime import datetime
 from database.connection import get_session
 from backend.models import Zone, Gateway, Asset, ZoneEvent
 from backend.schemas import ZoneEventIn
-
+from backend.models import Zone, Asset
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
@@ -54,8 +55,13 @@ def create_zone_event(event: ZoneEventIn, session: Session = Depends(get_session
     if zone.is_return_zone:
         asset.status = "AVAILABLE"
         asset.last_in_return_zone_at = observed_time
+        asset.loan_start_at = None
+
     else:
         asset.status = "LOANED"
+
+        if asset.loan_start_at is None:
+            asset.loan_start_at = observed_time
 
     session.add(asset)
     session.commit()
@@ -69,12 +75,27 @@ def create_zone_event(event: ZoneEventIn, session: Session = Depends(get_session
 
 @router.get("/assets")
 def get_assets(session: Session = Depends(get_session)):
+    assets = session.exec(select(Asset)).all()
+    zones = session.exec(select(Zone)).all()
 
-    statement = select(Asset)
-    assets = session.exec(statement).all()
+    zone_map = {zone.zone_id: zone.zone_name for zone in zones}
 
-    return assets
+    result = []
 
+    for asset in assets:
+        result.append({
+            "asset_id": asset.asset_id,
+            "asset_type": asset.asset_type,
+            "status": asset.status,
+            "current_zone_id": asset.current_zone_id,
+            "current_zone_name": zone_map.get(asset.current_zone_id, "Unknown"),
+            "last_seen_at": asset.last_seen_at.isoformat() if asset.last_seen_at else None,
+            "last_in_return_zone_at": asset.last_in_return_zone_at.isoformat() if asset.last_in_return_zone_at else None,
+            "loan_start_at": asset.loan_start_at.isoformat() if asset.loan_start_at else None,
+
+        })
+
+    return result
 
 # -----------------------------
 # GET ASSET HISTORY
@@ -113,3 +134,80 @@ def get_not_returned(session: Session = Depends(get_session)):
     assets = session.exec(statement).all()
 
     return assets
+
+
+# -----------------------------
+# GET dashboard
+# -----------------------------
+
+@router.get("/dashboard")
+def get_dashboard(session: Session = Depends(get_session)):
+    assets = session.exec(select(Asset)).all()
+    zones = session.exec(select(Zone)).all()
+
+    zone_map = {zone.zone_id: zone.zone_name for zone in zones}
+
+    available = []
+    loaned = []
+    not_returned = []
+    prioritized = []
+    unknown = []
+
+    now = datetime.utcnow()
+    priority_limit = 30  # minuter
+
+    for asset in assets:
+        minutes_since_seen = None
+        if asset.last_seen_at:
+            minutes_since_seen = int((now - asset.last_seen_at).total_seconds() // 60)
+
+        loan_duration_minutes = None
+        if asset.loan_start_at:
+            loan_duration_minutes = int((now - asset.loan_start_at).total_seconds() // 60)
+
+        asset_data = {
+            "asset_id": asset.asset_id,
+            "asset_type": asset.asset_type,
+            "status": asset.status,
+            "current_zone_id": asset.current_zone_id,
+            "current_zone_name": zone_map.get(asset.current_zone_id, "Unknown"),
+            "last_seen_at": asset.last_seen_at.isoformat() if asset.last_seen_at else None,
+            "last_in_return_zone_at": asset.last_in_return_zone_at.isoformat() if asset.last_in_return_zone_at else None,
+            "loan_start_at": asset.loan_start_at.isoformat() if asset.loan_start_at else None,
+            "minutes_since_seen": minutes_since_seen,
+            "loan_duration_minutes": loan_duration_minutes,
+        }
+
+        if asset.status == "AVAILABLE":
+            available.append(asset_data)
+
+        elif asset.status == "LOANED":
+            loaned.append(asset_data)
+            not_returned.append(asset_data)
+
+            if loan_duration_minutes is not None and loan_duration_minutes >= priority_limit:
+                prioritized.append(asset_data)
+
+        elif asset.status == "UNKNOWN":
+            unknown.append(asset_data)
+
+    available.sort(key=lambda x: x["asset_id"])
+    loaned.sort(key=lambda x: (x["loan_duration_minutes"] or 0), reverse=True)
+    not_returned.sort(key=lambda x: (x["loan_duration_minutes"] or 0), reverse=True)
+    prioritized.sort(key=lambda x: (x["loan_duration_minutes"] or 0), reverse=True)
+    unknown.sort(key=lambda x: x["asset_id"])
+
+    return {
+        "summary": {
+            "available_count": len(available),
+            "loaned_count": len(loaned),
+            "not_returned_count": len(not_returned),
+            "prioritized_count": len(prioritized),
+            "unknown_count": len(unknown)
+        },
+        "available": available,
+        "loaned": loaned,
+        "not_returned": not_returned,
+        "prioritized": prioritized,
+        "unknown": unknown
+    }

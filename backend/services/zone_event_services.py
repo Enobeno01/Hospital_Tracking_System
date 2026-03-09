@@ -37,8 +37,12 @@ class ZoneEventService:
         if zone.is_return_zone:
             asset.status = "AVAILABLE"
             asset.last_in_return_zone_at = observed_time
+            asset.loan_start_at = None
         else:
             asset.status = "LOANED"
+
+            if asset.loan_start_at is None:
+                asset.loan_start_at = observed_time
 
         session.add(asset)
         session.commit()

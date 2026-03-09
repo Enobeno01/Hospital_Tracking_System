@@ -44,6 +44,8 @@ class Asset(SQLModel, table=True):
 
     last_seen_at: Optional[datetime] = None
     last_in_return_zone_at: Optional[datetime] = None
+    loan_start_at: Optional[datetime] = None
+
 
 
 # =========================

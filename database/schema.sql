@@ -21,6 +21,7 @@ CREATE TABLE assets (
 
     last_seen_at TIMESTAMP,
     last_in_return_zone_at TIMESTAMP
+    
 );
 
 
