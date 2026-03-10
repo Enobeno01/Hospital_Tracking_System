@@ -8,6 +8,7 @@ from backend.schemas import ZoneEventIn
 from backend.models import Zone, Asset
 from datetime import datetime, timedelta
 
+
 router = APIRouter()
 
 
@@ -154,9 +155,11 @@ def get_dashboard(session: Session = Depends(get_session)):
     unknown = []
 
     now = datetime.utcnow()
-    priority_limit = 30  # minuter
+    priority_limit = 5  # minuter
 
     for asset in assets:
+        status = (asset.status or "UNKNOWN").upper().strip()
+
         minutes_since_seen = None
         if asset.last_seen_at:
             minutes_since_seen = int((now - asset.last_seen_at).total_seconds() // 60)
@@ -168,7 +171,7 @@ def get_dashboard(session: Session = Depends(get_session)):
         asset_data = {
             "asset_id": asset.asset_id,
             "asset_type": asset.asset_type,
-            "status": asset.status,
+            "status": status,
             "current_zone_id": asset.current_zone_id,
             "current_zone_name": zone_map.get(asset.current_zone_id, "Unknown"),
             "last_seen_at": asset.last_seen_at.isoformat() if asset.last_seen_at else None,
@@ -178,24 +181,18 @@ def get_dashboard(session: Session = Depends(get_session)):
             "loan_duration_minutes": loan_duration_minutes,
         }
 
-        if asset.status == "AVAILABLE":
+        if status == "AVAILABLE":
             available.append(asset_data)
 
-        elif asset.status == "LOANED":
+        elif status == "LOANED":
             loaned.append(asset_data)
             not_returned.append(asset_data)
 
             if loan_duration_minutes is not None and loan_duration_minutes >= priority_limit:
                 prioritized.append(asset_data)
 
-        elif asset.status == "UNKNOWN":
+        else:
             unknown.append(asset_data)
-
-    available.sort(key=lambda x: x["asset_id"])
-    loaned.sort(key=lambda x: (x["loan_duration_minutes"] or 0), reverse=True)
-    not_returned.sort(key=lambda x: (x["loan_duration_minutes"] or 0), reverse=True)
-    prioritized.sort(key=lambda x: (x["loan_duration_minutes"] or 0), reverse=True)
-    unknown.sort(key=lambda x: x["asset_id"])
 
     return {
         "summary": {
@@ -203,11 +200,110 @@ def get_dashboard(session: Session = Depends(get_session)):
             "loaned_count": len(loaned),
             "not_returned_count": len(not_returned),
             "prioritized_count": len(prioritized),
-            "unknown_count": len(unknown)
+            "unknown_count": len(unknown),
         },
         "available": available,
         "loaned": loaned,
         "not_returned": not_returned,
         "prioritized": prioritized,
-        "unknown": unknown
+        "unknown": unknown,
     }
+
+# -----------------------------
+# Post Assets Loan
+# -----------------------------
+@router.post("/assets/{asset_id}/loan")
+def loan_asset(asset_id: str, session: Session = Depends(get_session)):
+    asset = session.get(Asset, asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    current_status = (asset.status or "UNKNOWN").upper().strip()
+
+    if current_status == "LOANED":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Asset {asset_id} is already loaned"
+        )
+
+    now = datetime.utcnow()
+
+    asset.status = "LOANED"
+    asset.loan_start_at = now
+    asset.last_seen_at = now
+
+    session.add(asset)
+    session.commit()
+    session.refresh(asset)
+
+    return {
+        "message": f"{asset_id} loan registered",
+        "asset_id": asset.asset_id,
+        "status": asset.status,
+    }
+
+# -----------------------------
+# Post Assets Return
+# -----------------------------
+
+@router.post("/assets/{asset_id}/return")
+def return_asset(asset_id: str, session: Session = Depends(get_session)):
+    asset = session.get(Asset, asset_id)
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    current_status = (asset.status or "UNKNOWN").upper().strip()
+
+    if current_status != "LOANED":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Asset {asset_id} is not currently loaned"
+        )
+
+    return_zone = session.exec(
+        select(Zone).where(Zone.is_return_zone == True)
+    ).first()
+
+    if not return_zone:
+        raise HTTPException(status_code=404, detail="Return zone not found")
+
+    now = datetime.utcnow()
+
+    asset.status = "AVAILABLE"
+    asset.current_zone_id = return_zone.zone_id
+    asset.last_in_return_zone_at = now
+    asset.last_seen_at = now
+    asset.loan_start_at = None
+
+    session.add(asset)
+    session.commit()
+    session.refresh(asset)
+
+    return {
+        "message": f"{asset_id} return registered",
+        "asset_id": asset.asset_id,
+        "status": asset.status,
+    }
+
+
+
+@router.post("/create-test-assets")
+def create_test_assets(session: Session = Depends(get_session)):
+
+    assets = [
+        Asset(asset_id="W001", asset_type="Wheelchair"),
+        Asset(asset_id="W002", asset_type="Wheelchair"),
+        Asset(asset_id="W003", asset_type="Wheelchair"),
+        Asset(asset_id="B001", asset_type="Bed"),
+        Asset(asset_id="B002", asset_type="Bed"),
+        Asset(asset_id="B003", asset_type="Bed"),
+    ]
+
+    for asset in assets:
+        existing = session.get(Asset, asset.asset_id)
+        if not existing:
+            session.add(asset)
+
+    session.commit()
+
+    return {"message": "Test assets created"}
