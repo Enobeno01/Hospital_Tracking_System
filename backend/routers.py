@@ -4,9 +4,11 @@ from datetime import datetime
 
 from database.connection import get_session
 from backend.models import Zone, Gateway, Asset, ZoneEvent
-from backend.schemas import ZoneEventIn
+#from backend.schemas import ZoneEventIn
 from backend.models import Zone, Asset
 from datetime import datetime, timedelta
+from backend.schemas import ZoneEventIn, AssetCreate 
+
 
 
 router = APIRouter()
@@ -286,7 +288,9 @@ def return_asset(asset_id: str, session: Session = Depends(get_session)):
     }
 
 
-
+# -----------------------------
+# create test asset
+# -----------------------------
 @router.post("/create-test-assets")
 def create_test_assets(session: Session = Depends(get_session)):
 
@@ -307,3 +311,145 @@ def create_test_assets(session: Session = Depends(get_session)):
     session.commit()
 
     return {"message": "Test assets created"}
+
+
+# -----------------------------
+# # post new item
+# -----------------------------
+@router.post("/assets")
+def create_asset(asset: AssetCreate, session: Session = Depends(get_session)):
+    existing = session.get(Asset, asset.asset_id)
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Asset {asset.asset_id} already exists"
+        )
+
+    new_asset = Asset(
+        asset_id=asset.asset_id,
+        asset_type=asset.asset_type,
+        status="UNKNOWN"
+    )
+
+    session.add(new_asset)
+    session.commit()
+    session.refresh(new_asset)
+
+    return new_asset
+
+# -----------------------------
+# post new zone
+# -----------------------------
+@router.post("/zones")
+def create_zone(zone_name: str, is_return_zone: bool = False, session: Session = Depends(get_session)):
+    
+    zone = Zone(
+        zone_name=zone_name,
+        is_return_zone=is_return_zone
+    )
+
+    session.add(zone)
+    session.commit()
+    session.refresh(zone)
+
+    return zone
+
+# -----------------------------
+#  delete zone
+# -----------------------------
+@router.delete("/zones/{zone_id}")
+def delete_zone(zone_id: int, session: Session = Depends(get_session)):
+
+    zone = session.get(Zone, zone_id)
+
+    if not zone:
+        raise HTTPException(status_code=404, detail="Zone not found")
+
+    assets = session.exec(
+        select(Asset).where(Asset.current_zone_id == zone_id)
+    ).all()
+
+    if assets:
+        raise HTTPException(
+            status_code=400,
+            detail="Zone cannot be deleted because assets are using it"
+        )
+
+    session.delete(zone)
+    session.commit()
+
+    return {"message": f"Zone {zone_id} deleted"}
+
+
+# -----------------------------
+#  tracking statistic
+#an endpoint that counts how many times an asset has been registered in each zone.
+# -----------------------------
+@router.get("/assets/{asset_id}/zone-stats")
+def get_asset_zone_stats(asset_id: str, session: Session = Depends(get_session)):
+    asset = session.get(Asset, asset_id)
+
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    events = session.exec(
+        select(ZoneEvent).where(ZoneEvent.asset_id == asset_id)
+    ).all()
+
+    zones = session.exec(select(Zone)).all()
+    zone_map = {zone.zone_id: zone.zone_name for zone in zones}
+
+    stats = {}
+
+    for event in events:
+        zone_name = zone_map.get(event.zone_id, f"Zone {event.zone_id}")
+
+        if zone_name not in stats:
+            stats[zone_name] = 0
+
+        stats[zone_name] += 1
+
+    result = []
+    for zone_name, count in stats.items():
+        result.append({
+            "zone_name": zone_name,
+            "visits": count
+        })
+
+    result.sort(key=lambda x: x["visits"], reverse=True)
+
+    return {
+        "asset_id": asset_id,
+        "most_used_zones": result
+    }
+
+# -----------------------------
+#   statistic of which zones are used the most overall
+# -----------------------------
+@router.get("/zones/stats")
+def get_zone_stats(session: Session = Depends(get_session)):
+    events = session.exec(select(ZoneEvent)).all()
+    zones = session.exec(select(Zone)).all()
+
+    zone_map = {zone.zone_id: zone.zone_name for zone in zones}
+    stats = {}
+
+    for event in events:
+        zone_name = zone_map.get(event.zone_id, f"Zone {event.zone_id}")
+
+        if zone_name not in stats:
+            stats[zone_name] = 0
+
+        stats[zone_name] += 1
+
+    result = []
+    for zone_name, count in stats.items():
+        result.append({
+            "zone_name": zone_name,
+            "visits": count
+        })
+
+    result.sort(key=lambda x: x["visits"], reverse=True)
+
+    return result
