@@ -148,7 +148,7 @@ export default function App() {
   />
 
   <button className="remove-btn" onClick={removeAsset}>
-    Remove Asset
+    Delete Asset
   </button>
 </div>
 
