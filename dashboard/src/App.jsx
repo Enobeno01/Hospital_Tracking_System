@@ -14,6 +14,8 @@ export default function App() {
   const [newAssetType, setNewAssetType] = useState("");
 
   const [zoneStats, setZoneStats] = useState([]);
+ 
+  const [removeAssetId, setRemoveAssetId] = useState("");
 
   async function loadDashboard() {
     const res = await fetch(DASHBOARD_API);
@@ -101,6 +103,31 @@ export default function App() {
     }
   }
 
+  async function removeAsset() {
+    if (!removeAssetId) {
+      alert("Please enter an asset ID");
+      return;
+    }
+  
+    try {
+      const res = await fetch(`${BACKEND_API}/assets/${removeAssetId.toUpperCase()}`, {
+        method: "DELETE",
+      });
+  
+      const data = await res.json();
+  
+      if (!res.ok) {
+        alert(data.detail || "Could not remove asset");
+        return;
+      }
+  
+      setRemoveAssetId("");
+      loadDashboard();
+    } catch (error) {
+      alert("Server error while removing asset");
+    }
+  }
+
   useEffect(() => {
     loadDashboard();
     loadZoneStats();
@@ -113,6 +140,17 @@ export default function App() {
   return (
     <div className="container">
       <h1>Hospital Asset Tracker</h1>
+      <div className="manual-panel">
+  <input
+    placeholder="Remove Asset ID (ex: W001)"
+    value={removeAssetId}
+    onChange={(e) => setRemoveAssetId(e.target.value)}
+  />
+
+  <button className="remove-btn" onClick={removeAsset}>
+    Remove Asset
+  </button>
+</div>
 
       <div className="manual-panel">
         <input
@@ -189,7 +227,6 @@ function Section({ title, items,}) {
           <div className="small">
             Loan time: {asset.loan_duration_minutes ?? "-"} min
           </div>
-          
         </div>
       ))}
     </div>

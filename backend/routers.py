@@ -453,3 +453,18 @@ def get_zone_stats(session: Session = Depends(get_session)):
     result.sort(key=lambda x: x["visits"], reverse=True)
 
     return result
+
+# -----------------------------
+# DELETE ASSET
+# -----------------------------
+@router.delete("/assets/{asset_id}")
+def delete_asset(asset_id: str, session: Session = Depends(get_session)):
+    asset = session.get(Asset, asset_id)
+
+    if not asset:
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    session.delete(asset)
+    session.commit()
+
+    return {"message": f"{asset_id} deleted"}
