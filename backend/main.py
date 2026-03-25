@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from sqlmodel import SQLModel
 from fastapi.middleware.cors import CORSMiddleware
+from backend.mqtt.client import start
+
 
 from database.connection import engine
 import backend.models
@@ -23,7 +25,10 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup():
+    print("FASTAPI STARTUP")
     SQLModel.metadata.create_all(engine)
+    start()
+
 
 
 app.include_router(router)
