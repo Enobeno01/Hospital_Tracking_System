@@ -38,6 +38,8 @@ class Asset(SQLModel, table=True):
     asset_id: str = Field(primary_key=True, max_length=50)
     asset_type: Optional[str] = Field(default=None, max_length=50)
 
+    beacon_id: Optional[str] = Field(default=None, max_length=100, index=True)
+
     current_zone_id: Optional[int] = Field(default=None, foreign_key="zones.zone_id")
 
     status: str = Field(default="UNKNOWN", max_length=20)

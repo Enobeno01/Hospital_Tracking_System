@@ -314,7 +314,7 @@ def create_test_assets(session: Session = Depends(get_session)):
 
 
 # -----------------------------
-# # post new item
+# # post new item (create asset)
 # -----------------------------
 @router.post("/assets")
 def create_asset(asset: AssetCreate, session: Session = Depends(get_session)):
@@ -329,6 +329,7 @@ def create_asset(asset: AssetCreate, session: Session = Depends(get_session)):
     new_asset = Asset(
         asset_id=asset.asset_id,
         asset_type=asset.asset_type,
+        beacon_id=asset.beacon_id,
         status="UNKNOWN"
     )
 

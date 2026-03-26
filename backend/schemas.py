@@ -7,7 +7,7 @@ from pydantic import BaseModel
 class AssetCreate(BaseModel):
     asset_id: str
     asset_type: str
-   #asset_type: Optional[str] = None
+    beacon_id: Optional[str] = None
 
 
 class AssetOut(BaseModel):

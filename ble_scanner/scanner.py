@@ -1,20 +1,32 @@
 import asyncio
 from bleak import BleakScanner
+from ble_scanner.mqtt_client import send_tag
+
+seen_devices = set()
 
 def detection_callback(device, advertisement_data):
+    device_name = device.name or ""
+
+    if not device_name.startswith("KBPro_"):
+        return
+
+    if device.address in seen_devices:
+        return
+
+    seen_devices.add(device.address)
+
     print("-----")
     print("Name:", device.name)
-    print("Address/UUID:", device.address)
+    print("Address:", device.address)
     print("RSSI:", advertisement_data.rssi)
-    print("Local name:", advertisement_data.local_name)
-    print("Service UUIDs:", advertisement_data.service_uuids)
-    print("Manufacturer data:", advertisement_data.manufacturer_data)
-    print("Service data:", advertisement_data.service_data)
+
+    send_tag(device.address, advertisement_data.rssi)
 
 async def main():
     scanner = BleakScanner(detection_callback)
     await scanner.start()
-    await asyncio.sleep(10)
+    print("Scanning...")
+    await asyncio.sleep(20)
     await scanner.stop()
 
 asyncio.run(main())
