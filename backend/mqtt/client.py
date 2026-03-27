@@ -8,7 +8,7 @@ from database.connection import engine
 from backend.models import Asset
 
 BACKEND_URL = "http://127.0.0.1:8000/zone-events"
-ZONE_ID = 3
+ZONE_ID = 4
 GATEWAY_ID = 1
 
 last_sent = {}
