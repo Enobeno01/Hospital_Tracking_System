@@ -1,4 +1,5 @@
 import json
+import ssl
 import requests
 import paho.mqtt.client as mqtt
 from datetime import datetime
@@ -11,13 +12,19 @@ BACKEND_URL = "http://127.0.0.1:8000/zone-events"
 ZONE_ID = 3
 GATEWAY_ID = 1
 
+MQTT_HOST = "hospitaltraking-bdc24495.a01.euc1.aws.hivemq.cloud"
+MQTT_PORT = 8883
+MQTT_USERNAME = "manar"
+MQTT_PASSWORD = "Hejhejdu1"
+MQTT_TOPIC = "ble/tags"
+
 last_sent = {}
 COOLDOWN_SECONDS = 10
 
 
 def on_connect(client, userdata, flags, rc):
     print("MQTT connected:", rc)
-    client.subscribe("ble/tags")
+    client.subscribe(MQTT_TOPIC)
 
 
 def find_asset_by_beacon(tag_id: str):
@@ -66,11 +73,13 @@ def on_message(client, userdata, msg):
 
 
 client = mqtt.Client()
+client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
+client.tls_set(cert_reqs=ssl.CERT_REQUIRED)
 client.on_connect = on_connect
 client.on_message = on_message
 
 
 def start():
     print("MQTT STARTAR...")
-    client.connect("localhost", 1883, 60)
+    client.connect(MQTT_HOST, MQTT_PORT, 60)
     client.loop_start()
