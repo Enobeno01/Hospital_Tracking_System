@@ -4,7 +4,6 @@ from datetime import datetime
 
 from database.connection import get_session
 from backend.models import Zone, Gateway, Asset, ZoneEvent
-#from backend.schemas import ZoneEventIn
 from backend.models import Zone, Asset
 from datetime import datetime, timedelta
 from backend.schemas import ZoneEventIn, AssetCreate 
@@ -14,18 +13,14 @@ from backend.schemas import ZoneEventIn, AssetCreate
 router = APIRouter()
 
 
-# -----------------------------
-# ROOT
-# -----------------------------
 
 @router.get("/")
 def root():
     return {"message": "Hospital Tracking Backend Running"}
 
 
-# -----------------------------
+
 # CREATE ZONE EVENT
-# -----------------------------
 
 @router.post("/zone-events")
 def create_zone_event(event: ZoneEventIn, session: Session = Depends(get_session)):
@@ -72,10 +67,8 @@ def create_zone_event(event: ZoneEventIn, session: Session = Depends(get_session
     return {"message": "Zone event stored"}
 
 
-# -----------------------------
-# GET ALL ASSETS
-# -----------------------------
 
+# GET ALL ASSETS
 @router.get("/assets")
 def get_assets(session: Session = Depends(get_session)):
     assets = session.exec(select(Asset)).all()
@@ -100,10 +93,7 @@ def get_assets(session: Session = Depends(get_session)):
 
     return result
 
-# -----------------------------
 # GET ASSET HISTORY
-# -----------------------------
-
 @router.get("/assets/{asset_id}/history")
 def get_asset_history(asset_id: str, session: Session = Depends(get_session)):
 
@@ -113,10 +103,7 @@ def get_asset_history(asset_id: str, session: Session = Depends(get_session)):
     return events
 
 
-# -----------------------------
 # GET ALL ZONES
-# -----------------------------
-
 @router.get("/zones")
 def get_zones(session: Session = Depends(get_session)):
 
@@ -125,11 +112,7 @@ def get_zones(session: Session = Depends(get_session)):
 
     return zones
 
-
-# -----------------------------
 # GET OVERDUE / NOT RETURNED
-# -----------------------------
-
 @router.get("/assets/not-returned")
 def get_not_returned(session: Session = Depends(get_session)):
 
@@ -139,10 +122,7 @@ def get_not_returned(session: Session = Depends(get_session)):
     return assets
 
 
-# -----------------------------
 # GET dashboard
-# -----------------------------
-
 @router.get("/dashboard")
 def get_dashboard(session: Session = Depends(get_session)):
     assets = session.exec(select(Asset)).all()
@@ -157,7 +137,7 @@ def get_dashboard(session: Session = Depends(get_session)):
     unknown = []
 
     now = datetime.utcnow()
-    priority_limit = 5  # minuter
+    priority_limit = 5  
 
     for asset in assets:
         status = (asset.status or "UNKNOWN").upper().strip()
@@ -211,9 +191,7 @@ def get_dashboard(session: Session = Depends(get_session)):
         "unknown": unknown,
     }
 
-# -----------------------------
 # Post Assets Loan
-# -----------------------------
 @router.post("/assets/{asset_id}/loan")
 def loan_asset(asset_id: str, session: Session = Depends(get_session)):
     asset = session.get(Asset, asset_id)
@@ -244,10 +222,8 @@ def loan_asset(asset_id: str, session: Session = Depends(get_session)):
         "status": asset.status,
     }
 
-# -----------------------------
-# Post Assets Return
-# -----------------------------
 
+# Post Assets Return
 @router.post("/assets/{asset_id}/return")
 def return_asset(asset_id: str, session: Session = Depends(get_session)):
     asset = session.get(Asset, asset_id)
@@ -288,9 +264,7 @@ def return_asset(asset_id: str, session: Session = Depends(get_session)):
     }
 
 
-# -----------------------------
 # create test asset
-# -----------------------------
 @router.post("/create-test-assets")
 def create_test_assets(session: Session = Depends(get_session)):
 
@@ -313,9 +287,7 @@ def create_test_assets(session: Session = Depends(get_session)):
     return {"message": "Test assets created"}
 
 
-# -----------------------------
 # # post new item (create asset)
-# -----------------------------
 @router.post("/assets")
 def create_asset(asset: AssetCreate, session: Session = Depends(get_session)):
     existing = session.get(Asset, asset.asset_id)
@@ -339,9 +311,7 @@ def create_asset(asset: AssetCreate, session: Session = Depends(get_session)):
 
     return new_asset
 
-# -----------------------------
 # post new zone
-# -----------------------------
 @router.post("/zones")
 def create_zone(zone_name: str, is_return_zone: bool = False, session: Session = Depends(get_session)):
     
@@ -356,9 +326,7 @@ def create_zone(zone_name: str, is_return_zone: bool = False, session: Session =
 
     return zone
 
-# -----------------------------
 #  delete zone
-# -----------------------------
 @router.delete("/zones/{zone_id}")
 def delete_zone(zone_id: int, session: Session = Depends(get_session)):
 
@@ -383,10 +351,8 @@ def delete_zone(zone_id: int, session: Session = Depends(get_session)):
     return {"message": f"Zone {zone_id} deleted"}
 
 
-# -----------------------------
 #  tracking statistic
 #an endpoint that counts how many times an asset has been registered in each zone.
-# -----------------------------
 @router.get("/assets/{asset_id}/zone-stats")
 def get_asset_zone_stats(asset_id: str, session: Session = Depends(get_session)):
     asset = session.get(Asset, asset_id)
@@ -425,9 +391,7 @@ def get_asset_zone_stats(asset_id: str, session: Session = Depends(get_session))
         "most_used_zones": result
     }
 
-# -----------------------------
 #   statistic of which zones are used the most overall
-# -----------------------------
 @router.get("/zones/stats")
 def get_zone_stats(session: Session = Depends(get_session)):
     events = session.exec(select(ZoneEvent)).all()
@@ -455,9 +419,7 @@ def get_zone_stats(session: Session = Depends(get_session)):
 
     return result
 
-# -----------------------------
 # DELETE ASSET
-# -----------------------------
 @router.delete("/assets/{asset_id}")
 def delete_asset(asset_id: str, session: Session = Depends(get_session)):
     asset = session.get(Asset, asset_id)

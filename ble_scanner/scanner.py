@@ -1,19 +1,24 @@
 import asyncio
 from bleak import BleakScanner
 from ble_scanner.mqtt_client import send_tag
+import time
 
-seen_devices = set()
+last_seen = {}
+SEND_INTERVAL = 1  # sekunder
 
 def detection_callback(device, advertisement_data):
     device_name = device.name or ""
 
-    if not device_name.startswith("KBPro_"):
+    if not device_name.startswith("KBPro"):
         return
 
-    if device.address in seen_devices:
+    now = time.time()
+    last_time = last_seen.get(device.address, 0)
+
+    if now - last_time < SEND_INTERVAL:
         return
 
-    seen_devices.add(device.address)
+    last_seen[device.address] = now
 
     print("-----")
     print("Name:", device.name)
@@ -26,7 +31,8 @@ async def main():
     scanner = BleakScanner(detection_callback)
     await scanner.start()
     print("Scanning...")
-    await asyncio.sleep(20)
-    await scanner.stop()
+
+    while True:
+        await asyncio.sleep(1)
 
 asyncio.run(main())

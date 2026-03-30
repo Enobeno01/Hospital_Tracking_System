@@ -4,10 +4,8 @@ from typing import Optional
 from sqlmodel import SQLModel, Field
 
 
-# =========================
-# ZONES
-# =========================
 
+# ZONES
 class Zone(SQLModel, table=True):
     __tablename__ = "zones"
 
@@ -16,9 +14,8 @@ class Zone(SQLModel, table=True):
     is_return_zone: bool = False
 
 
-# =========================
+
 # GATEWAYS
-# =========================
 
 class Gateway(SQLModel, table=True):
     __tablename__ = "gateways"
@@ -28,10 +25,7 @@ class Gateway(SQLModel, table=True):
     zone_id: Optional[int] = Field(default=None, foreign_key="zones.zone_id")
 
 
-# =========================
 # ASSETS
-# =========================
-
 class Asset(SQLModel, table=True):
     __tablename__ = "assets"
 
@@ -50,10 +44,7 @@ class Asset(SQLModel, table=True):
 
 
 
-# =========================
 # ZONE EVENTS
-# =========================
-
 class ZoneEvent(SQLModel, table=True):
     __tablename__ = "zone_events"
 

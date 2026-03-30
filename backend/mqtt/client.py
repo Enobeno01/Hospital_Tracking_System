@@ -19,7 +19,7 @@ MQTT_PASSWORD = "Hejhejdu1"
 MQTT_TOPIC = "ble/tags"
 
 last_sent = {}
-COOLDOWN_SECONDS = 10
+COOLDOWN_SECONDS = 1
 
 
 def on_connect(client, userdata, flags, rc):
