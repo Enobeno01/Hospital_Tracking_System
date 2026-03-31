@@ -13,10 +13,12 @@ class AssetCreate(BaseModel):
 class AssetOut(BaseModel):
     asset_id: str
     asset_type: Optional[str] = None
+    beacon_id: Optional[str] = None
     current_zone_id: Optional[int] = None
     status: str
     last_seen_at: Optional[datetime] = None
     last_in_return_zone_at: Optional[datetime] = None
+    loan_start_at: Optional[datetime] = None
 
 
 class ZoneEventIn(BaseModel):

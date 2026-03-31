@@ -83,6 +83,7 @@ def get_assets(session: Session = Depends(get_session)):
             "asset_id": asset.asset_id,
             "asset_type": asset.asset_type,
             "status": asset.status,
+            "beacon_id": asset.beacon_id,
             "current_zone_id": asset.current_zone_id,
             "current_zone_name": zone_map.get(asset.current_zone_id, "Unknown"),
             "last_seen_at": asset.last_seen_at.isoformat() if asset.last_seen_at else None,

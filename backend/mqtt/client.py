@@ -8,9 +8,8 @@ from sqlmodel import Session, select
 from database.connection import engine
 from backend.models import Asset
 
+latest_signals = {}
 BACKEND_URL = "http://127.0.0.1:8000/zone-events"
-ZONE_ID = 3
-GATEWAY_ID = 1
 
 MQTT_HOST = "hospitaltraking-bdc24495.a01.euc1.aws.hivemq.cloud"
 MQTT_PORT = 8883
@@ -36,11 +35,45 @@ def find_asset_by_beacon(tag_id: str):
 def on_message(client, userdata, msg):
     print("MQTT message received")
 
-    data = json.loads(msg.payload.decode())
+    try:
+        data = json.loads(msg.payload.decode())
+    except Exception:
+        print("Invalid JSON")
+        return
+
     print("Data:", data)
 
     tag_id = data.get("tag_id")
     rssi = data.get("rssi")
+    gateway_id = data.get("gateway_id")
+    zone_id = data.get("zone_id")
+
+    if not gateway_id:
+        print("Missing gateway_id")
+        return
+
+    if zone_id is None:
+        print("Missing zone_id")
+        return
+
+    if tag_id not in latest_signals:
+        latest_signals[tag_id] = {}
+
+    latest_signals[tag_id][gateway_id] = {
+        "rssi": rssi,
+        "zone_id": zone_id
+    }
+
+    best_gateway = max(
+        latest_signals[tag_id],
+        key=lambda gw: latest_signals[tag_id][gw]["rssi"]
+    )
+
+    print(f"Best gateway for {tag_id}: {best_gateway}")
+
+    if gateway_id != best_gateway:
+        print("Skipping weaker signal")
+        return
 
     asset = find_asset_by_beacon(tag_id)
 
@@ -55,10 +88,12 @@ def on_message(client, userdata, msg):
         print(f"Skipping duplicate for {asset.asset_id}")
         return
 
+    best_zone_id = latest_signals[tag_id][best_gateway]["zone_id"]
+
     payload = {
         "asset_id": asset.asset_id,
-        "zone_id": ZONE_ID,
-        "gateway_id": GATEWAY_ID
+        "zone_id": best_zone_id,
+        "gateway_id": gateway_id
     }
 
     try:
